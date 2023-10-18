@@ -1,0 +1,7 @@
+[workspace]
+resolver = "2"
+members = ["services/*", "libs/*"]
+default-members = ["services/*", "libs/*"]
+
+[workspace.dependencies]
+tokio = "1"
