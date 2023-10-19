@@ -5,3 +5,4 @@ default-members = ["services/*", "libs/*"]
 
 [workspace.dependencies]
 tokio = "1"
+hyper = "0.14.27"
