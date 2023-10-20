@@ -8,7 +8,7 @@ fn main() -> Result<(), dyn Error> {
             Mutex::new(
                 Node::new(
                     0,
-                    State::Candidate,
+                    State::Follower,
                     vec![]
                 )?
             )
