@@ -2,20 +2,22 @@ use std::error::Error;
 use std::sync::{Arc, Mutex};
 use consensus::raft::{Node, State};
 
-fn main() -> Result<(), dyn Error> {
-    consensus::raft::CORE_NODE.get_or_init(
+#[tokio::main]
+async fn main() -> Result<(), dyn Error> {
+    consensus::raft::CORE_NODE.call_once(
         || Arc::new(
             Mutex::new(
                 Node::new(
                     0,
                     State::Follower,
-                    vec![]
+                    vec![],
+                    0,
                 )?
             )
         )
     );
 
-    println!("Hello, world!");
+    println!("Hello, raft!");
 
     Ok(())
 }
