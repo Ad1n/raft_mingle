@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 consensus = { path = "../../libs/consensus" }
+error = { path = "../../libs/error" }
