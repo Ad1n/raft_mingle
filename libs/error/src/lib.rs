@@ -1,5 +1,7 @@
-use std::error::Error;
-use std::fmt::{Debug, Display, Formatter};
+use std::{
+    error::Error,
+    fmt::{Debug, Display, Formatter},
+};
 
 pub enum ApplicationError<T: Error> {
     Internal(InternalError<T>),
@@ -8,7 +10,7 @@ pub enum ApplicationError<T: Error> {
 
 pub struct InternalError<T>
 where
-    T: Error
+    T: Error,
 {
     inner: Option<T>,
 }
@@ -18,9 +20,7 @@ where
     T: Error + Display,
 {
     pub fn new(src: T) -> Self {
-        Self {
-            inner: Some(src),
-        }
+        Self { inner: Some(src) }
     }
 }
 
@@ -48,12 +48,10 @@ impl<T: Error> Error for InternalError<T> {}
 
 impl<T> From<T> for InternalError<T>
 where
-    T: Error
+    T: Error,
 {
     fn from(src: T) -> InternalError<T> {
-        InternalError::new(
-            src,
-        )
+        InternalError::new(src)
     }
 }
 

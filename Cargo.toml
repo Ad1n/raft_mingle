@@ -6,3 +6,4 @@ default-members = ["services/*", "libs/*"]
 [workspace.dependencies]
 tokio = { version = "1", features = ["full"] }
 hyper = "0.14.27"
+rand = "0.8.5"
