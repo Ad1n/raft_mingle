@@ -1,11 +1,12 @@
 use error::CustomError;
 use std::{
     sync::{Arc, Mutex, MutexGuard, OnceLock},
-    time::{Duration, Instant},
+    time::{Instant},
 };
 use crate::timer::Timer;
 
-type Term = usize;
+type Term = i64;
+type Id = i64;
 
 pub static CORE_NODE: OnceLock<Arc<Mutex<Node>>> = OnceLock::new();
 
@@ -13,11 +14,13 @@ pub static CORE_NODE: OnceLock<Arc<Mutex<Node>>> = OnceLock::new();
 /// Raft consensus node
 #[derive(Debug)]
 pub struct Node {
-    pub id: u8,
+    pub id: Id,
     pub state: State,
     pub peer_ids: Vec<u8>,
     pub term: Term,
     // client: Client,
+    pub election_reset_at: Instant,
+    pub voted_for: Term,
 }
 
 impl Default for Node {
@@ -27,13 +30,15 @@ impl Default for Node {
             state: State::Follower,
             peer_ids: vec![],
             term: 0,
+            election_reset_at: Instant::now(),
+            voted_for: -1,
         }
     }
 }
 
 impl Node {
     pub fn new(
-        id: u8,
+        id: Id,
         state: State,
         peer_ids: Vec<u8>,
         term: Term,
@@ -43,7 +48,22 @@ impl Node {
             state,
             peer_ids,
             term,
+            election_reset_at: Instant::now(),
+            voted_for: -1,
         })
+    }
+
+    pub fn start_election(&mut self) -> Result<(), CustomError> {
+        self.state = State::Candidate;
+        self.term += 1;
+        let current_term = *&self.term;
+        self.election_reset_at = Instant::now();
+        self.voted_for = self.id;
+        // TODO: Log becomming candidate
+
+        let votes_received: u32 = 1;
+
+        todo!()
     }
 
     pub fn get_guarded<'a>() -> Result<MutexGuard<'a, Node>, CustomError> {
