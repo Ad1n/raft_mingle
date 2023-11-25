@@ -1,13 +1,42 @@
+mod config;
+
 use consensus::raft::Node;
-use error::CustomError;
+use error::{CustomError, SimpleResult};
 use std::sync::{Arc, Mutex};
 
+use std::{
+    convert::Infallible,
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+};
+
+use crate::config::Config;
+use http_body_util::Full;
+use hyper::{body::Bytes, server::conn::http1, service::service_fn, Request, Response};
+use hyper_util::rt::TokioIo;
+use log::{error, info};
+use tokio::net::TcpListener;
+
 #[tokio::main]
-async fn main() -> Result<(), CustomError> {
+async fn main() -> SimpleResult<()> {
+    pretty_env_logger::init();
+    let config = Config::new()?;
     consensus::raft::CORE_NODE.get_or_init(|| Arc::new(Mutex::new(Node::default())));
+    let addr: SocketAddr =
+        SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), config.port());
+    let listener = TcpListener::bind(&addr).await?;
+    info!("Listening on http://{}", addr);
+    info!("Hello, raft!");
 
+    loop {
+        let (stream, _) = listener.accept().await?;
+        let io = TokioIo::new(stream);
 
-    println!("Hello, raft!");
+        tokio::task::spawn(async move {
+            let service = service_fn(move |req| rpc::serve_endpoints(req));
 
-    Ok(())
+            if let Err(err) = http1::Builder::new().serve_connection(io, service).await {
+                error!("Failed to serve connection: {:?}", err);
+            }
+        });
+    }
 }

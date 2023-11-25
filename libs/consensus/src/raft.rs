@@ -1,9 +1,9 @@
+use crate::timer::Timer;
 use error::CustomError;
 use std::{
     sync::{Arc, Mutex, MutexGuard, OnceLock},
-    time::{Instant},
+    time::Instant,
 };
-use crate::timer::Timer;
 
 type Term = i64;
 type Id = i64;
@@ -87,7 +87,11 @@ impl Node {
                 if node.term != term {
                     return Ok(false);
                 }
-                if Instant::now().duration_since(election_reset_event) >= Timer::generate_election_duration_time() { return Ok(false) }
+                if Instant::now().duration_since(election_reset_event)
+                    >= Timer::generate_election_duration_time()
+                {
+                    return Ok(false);
+                }
 
                 Ok(true)
             },

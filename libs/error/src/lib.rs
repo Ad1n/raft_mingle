@@ -3,6 +3,9 @@ use std::{
     fmt::{Debug, Display, Formatter},
 };
 
+pub type GenericError = Box<dyn std::error::Error + Send + Sync>;
+pub type SimpleResult<T> = std::result::Result<T, GenericError>;
+
 pub enum ApplicationError<T: Error> {
     Internal(InternalError<T>),
     Custom(CustomError),
