@@ -1,17 +1,14 @@
 mod config;
+pub mod core;
 
 use consensus::raft::Node;
-use error::{CustomError, SimpleResult};
+use error::SimpleResult;
 use std::sync::{Arc, Mutex};
 
-use std::{
-    convert::Infallible,
-    net::{IpAddr, Ipv4Addr, SocketAddr},
-};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use crate::config::Config;
-use http_body_util::Full;
-use hyper::{body::Bytes, server::conn::http1, service::service_fn, Request, Response};
+use hyper::{server::conn::http1, service::service_fn};
 use hyper_util::rt::TokioIo;
 use log::{error, info};
 use tokio::net::TcpListener;

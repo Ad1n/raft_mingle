@@ -4,43 +4,42 @@ use std::{
     sync::{Arc, Mutex, MutexGuard, OnceLock},
     time::Instant,
 };
+use uuid::Uuid;
 
 type Term = i64;
-type Id = i64;
 
 pub static CORE_NODE: OnceLock<Arc<Mutex<Node>>> = OnceLock::new();
-
 
 /// Raft consensus node
 #[derive(Debug)]
 pub struct Node {
-    pub id: Id,
+    pub id: Uuid,
     pub state: State,
-    pub peer_ids: Vec<u8>,
+    pub peer_ids: Vec<Uuid>,
     pub term: Term,
     // client: Client,
     pub election_reset_at: Instant,
-    pub voted_for: Term,
+    pub voted_for: Option<Uuid>,
 }
 
 impl Default for Node {
     fn default() -> Self {
         Self {
-            id: 0,
+            id: Uuid::new_v4(),
             state: State::Follower,
             peer_ids: vec![],
             term: 0,
             election_reset_at: Instant::now(),
-            voted_for: -1,
+            voted_for: None,
         }
     }
 }
 
 impl Node {
     pub fn new(
-        id: Id,
+        id: Uuid,
         state: State,
-        peer_ids: Vec<u8>,
+        peer_ids: Vec<Uuid>,
         term: Term,
     ) -> Result<Node, CustomError> {
         Ok(Self {
@@ -49,7 +48,7 @@ impl Node {
             peer_ids,
             term,
             election_reset_at: Instant::now(),
-            voted_for: -1,
+            voted_for: None,
         })
     }
 
@@ -58,7 +57,7 @@ impl Node {
         self.term += 1;
         let current_term = *&self.term;
         self.election_reset_at = Instant::now();
-        self.voted_for = self.id;
+        self.voted_for = Some(self.id);
         // TODO: Log becomming candidate
 
         let votes_received: u32 = 1;

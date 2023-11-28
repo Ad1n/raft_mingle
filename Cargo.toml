@@ -14,3 +14,4 @@ serde_yaml = "0.9.27"
 serde = { version = "1.0.193", features = ["derive"] }
 log = "0.4.20"
 bytes = "1.5.0"
+uuid = { version = "1.6.1", features = ["v4"] }
