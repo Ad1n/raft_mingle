@@ -1,7 +1,8 @@
 use crate::trait_impl;
-use error::{CustomError, SimpleResult};
+use error::CustomError;
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
+use thiserror::Error;
 
 pub struct SimpleStorage {
     guard: Arc<Mutex<Data>>,
@@ -22,27 +23,35 @@ impl SimpleStorage {
 }
 
 impl trait_impl::Storage for SimpleStorage {
-    fn set(&self, k: String, v: Vec<u8>) -> SimpleResult<bool> {
+    fn set(&self, k: String, v: Vec<u8>) -> StorageResult<bool> {
         match self.guard.lock() {
-            Ok(guarded_data) => {
+            Ok(mut guarded_data) => {
                 guarded_data.inner.insert(k, v);
                 Ok(true)
             },
-            Err(err) => return Err(CustomError::new(&err.to_string())),
+            Err(err) => Err(CustomError::new(&err.to_string()).into()),
         }
     }
 
-    fn get(&self, k: String) -> SimpleResult<Vec<u8>> {
+    fn get(&self, k: String) -> StorageResult<Option<Vec<u8>>> {
         match self.guard.lock() {
-            Ok(guarded_data) => match guarded_data.inner.get(k) {},
-            Err(err) => return Err(CustomError::new(&err.to_string())),
+            Ok(guarded_data) => Ok(guarded_data.inner.get(&k).cloned()),
+            Err(err) => Err(CustomError::new(&err.to_string()).into()),
         }
     }
 
-    fn has_data(&self) -> SimpleResult<bool> {
+    fn has_data(&self) -> StorageResult<bool> {
         match self.guard.lock() {
             Ok(guarded_data) => Ok(!guarded_data.inner.is_empty()),
-            Err(err) => return Err(CustomError::new(&err.to_string())),
+            Err(err) => Err(CustomError::new(&err.to_string()).into()),
         }
     }
+}
+
+pub type StorageResult<T> = Result<T, StorageError>;
+
+#[derive(Error, Debug)]
+pub enum StorageError {
+    #[error("Poisoned mutex")]
+    Poisoned(#[from] CustomError),
 }

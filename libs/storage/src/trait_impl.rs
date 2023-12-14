@@ -1,9 +1,9 @@
-use error::SimpleResult;
+use crate::simple_storage::StorageResult;
 
 pub(crate) trait Storage {
-    fn set(&self, k: String, v: Vec<u8>) -> SimpleResult<bool>;
+    fn set(&self, k: String, v: Vec<u8>) -> StorageResult<bool>;
 
-    fn get(&self, k: String) -> SimpleResult<Vec<u8>>;
+    fn get(&self, k: String) -> StorageResult<Option<Vec<u8>>>;
 
-    fn has_data(&self) -> SimpleResult<bool>;
+    fn has_data(&self) -> StorageResult<bool>;
 }

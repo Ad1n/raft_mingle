@@ -18,6 +18,7 @@ async fn main() -> SimpleResult<()> {
     pretty_env_logger::init();
     let config = Config::new()?;
     consensus::raft::CORE_NODE.get_or_init(|| Arc::new(Mutex::new(Node::default())));
+
     let addr: SocketAddr =
         SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), config.port());
     let listener = TcpListener::bind(&addr).await?;
@@ -29,7 +30,7 @@ async fn main() -> SimpleResult<()> {
         let io = TokioIo::new(stream);
 
         tokio::task::spawn(async move {
-            let service = service_fn(move |req| rpc::serve_endpoints(req));
+            let service = service_fn(move |req| rpc::server::serve_endpoints(req));
 
             if let Err(err) = http1::Builder::new().serve_connection(io, service).await {
                 error!("Failed to serve connection: {:?}", err);

@@ -1,36 +1,44 @@
-use bytes::{Buf, Bytes};
-use error::SimpleResult;
-use http_body_util::{BodyExt, Full};
-use hyper::{
-    body::Incoming as IncomingBody, header, Method, Request, Response, StatusCode,
-};
-use hyper_util::rt::TokioIo;
-use log::{error, info};
+use std::fmt;
+use std::str::FromStr;
 
-type BoxBody = http_body_util::combinators::BoxBody<Bytes, hyper::Error>;
+pub mod client;
+pub mod server;
 
-const NOTFOUND: &[u8] = b"Not Found";
-const INDEX: &[u8] = b"<a href=\"test.html\">test.html</a>";
-
-fn full<T: Into<Bytes>>(chunk: T) -> BoxBody {
-    Full::new(chunk.into())
-        .map_err(|never| match never {})
-        .boxed()
+enum Endpoint {
+    RequestVote,
+    RequestVoteResponse,
+    AppendEntries,
+    AppendEntriesResponse,
+    InstallSnapshot,
+    InstallSnapshotResponse,
 }
 
-pub async fn serve_endpoints(
-    req: Request<IncomingBody>,
-) -> SimpleResult<Response<BoxBody>> {
-    match (req.method(), req.uri().path()) {
-        (&Method::GET, "/") | (&Method::GET, "/index.html") => {
-            Ok(Response::new(full(INDEX)))
-        },
-        _ => {
-            // Return 404 not found response.
-            Ok(Response::builder()
-                .status(StatusCode::NOT_FOUND)
-                .body(full(NOTFOUND))
-                .unwrap())
-        },
+impl FromStr for Endpoint {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "request_vote" => Ok(Self::RequestVote),
+            "request_vote_response" => Ok(Self::RequestVoteResponse),
+            "append_entries" => Ok(Self::AppendEntries),
+            "append_entries_response" => Ok(Self::AppendEntriesResponse),
+            "install_snapshot" => Ok(Self::InstallSnapshot),
+            "install_snapshot_response" => Ok(Self::InstallSnapshotResponse),
+            _ => Err(()),
+        }
+    }
+}
+
+impl fmt::Display for Endpoint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let variant_str = match self {
+            Self::RequestVote => "request_vote",
+            Self::RequestVoteResponse => "request_vote_response",
+            Self::AppendEntries => "append_entries",
+            Self::AppendEntriesResponse => "append_entries_response",
+            Self::InstallSnapshot => "install_snapshot",
+            Self::InstallSnapshotResponse => "install_snapshot_response",
+        };
+        write!(f, "{}", variant_str)
     }
 }

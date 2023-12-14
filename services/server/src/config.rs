@@ -2,9 +2,19 @@ use error::CustomError;
 use serde::Deserialize;
 use std::{fs::File, io::Read};
 
-#[derive(Debug, Deserialize, Copy, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Config {
     port: u16,
+    protocol: Protocol,
+    domain: Domain,
+}
+
+pub type Domain = String;
+
+#[derive(Debug, Deserialize, Copy, Clone)]
+pub enum Protocol {
+    Http,
+    Https,
 }
 
 impl Config {
