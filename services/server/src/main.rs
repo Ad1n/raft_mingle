@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
-use crate::config::Config;
+use config::Config;
 use hyper::{server::conn::http1, service::service_fn};
 use hyper_util::rt::TokioIo;
 use log::{error, info};

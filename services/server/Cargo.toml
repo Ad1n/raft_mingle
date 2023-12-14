@@ -19,3 +19,4 @@ uuid.workspace = true
 consensus = { path = "../../libs/consensus" }
 error = { path = "../../libs/error" }
 rpc = { path = "../../libs/rpc" }
+config = { path = "../../libs/config" }

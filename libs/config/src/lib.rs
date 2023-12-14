@@ -1,6 +1,7 @@
 use error::CustomError;
 use serde::Deserialize;
-use std::{fs::File, io::Read};
+use std::{fs::File, io, io::Read};
+use thiserror::Error;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
@@ -18,9 +19,8 @@ pub enum Protocol {
 }
 
 impl Config {
-    pub fn new() -> Result<Self, CustomError> {
-        let file = File::open("services/server/config.yml")
-            .map_err(|err| CustomError::new(&err.to_string()))?;
+    pub fn new() -> Result<Self, ConfigError> {
+        let file = File::open("services/server/config.yml")?;
         let mut content = String::new();
         let _ = std::io::BufReader::new(file).read_to_string(&mut content);
         let config: Config =
@@ -32,4 +32,10 @@ impl Config {
     pub fn port(&self) -> u16 {
         *&self.port
     }
+}
+
+#[derive(Error, Debug)]
+pub enum ConfigError {
+    #[error("Parse config error")]
+    IO(#[from] io::Error),
 }
