@@ -1,4 +1,3 @@
-use error::CustomError;
 use serde::Deserialize;
 use std::{fs::File, io, io::Read};
 use thiserror::Error;
@@ -6,14 +5,14 @@ use thiserror::Error;
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
     port: u16,
-    protocol: Protocol,
-    domain: Domain,
+    scheme: Scheme,
+    host: Host,
 }
 
-pub type Domain = String;
+pub type Host = String;
 
 #[derive(Debug, Deserialize, Copy, Clone)]
-pub enum Protocol {
+pub enum Scheme {
     Http,
     Https,
 }

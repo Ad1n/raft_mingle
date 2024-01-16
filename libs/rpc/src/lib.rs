@@ -2,9 +2,11 @@ use std::fmt;
 use std::str::FromStr;
 
 pub mod client;
+pub mod error;
+pub mod response;
 pub mod server;
 
-enum Endpoint {
+pub enum Endpoint {
     RequestVote,
     RequestVoteResponse,
     AppendEntries,
