@@ -2,6 +2,6 @@ port: 8101
 scheme: Http
 host: localhost
 rpc_clients:
-  - http://localhost:8102
-  - http://localhost:8103
+  - localhost:8102
+  - localhost:8103
   

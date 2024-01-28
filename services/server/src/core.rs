@@ -1,6 +1,7 @@
 use consensus::raft;
 use std::sync::Arc;
 use std::sync::Mutex;
+use storage::simple_storage::SimpleStorage;
 use uuid::Uuid;
 
 pub struct ServerCore {
@@ -11,8 +12,8 @@ pub struct InnerData {
     id: Uuid,
     peer_ids: Vec<Uuid>,
     consensus: ConsensusAlgorithm,
-    // rpc_server:
-    // rpc_clients:
+    storage: SimpleStorage,
+    rpc_clients: Vec<rpc::client::Client>,
 }
 
 pub enum ConsensusAlgorithm {
@@ -20,12 +21,22 @@ pub enum ConsensusAlgorithm {
 }
 
 impl ServerCore {
-    pub fn new(id: Uuid, peer_ids: Vec<Uuid>, consensus: ConsensusAlgorithm) -> Self {
+    pub fn new(
+        id: Uuid,
+        peer_ids: Vec<Uuid>,
+        consensus: ConsensusAlgorithm,
+        clients_uri: Vec<hyper::Uri>,
+    ) -> Self {
         Self {
             guard: Arc::new(Mutex::new(InnerData {
                 id,
                 peer_ids,
                 consensus,
+                storage: SimpleStorage::new(),
+                rpc_clients: clients_uri
+                    .into_iter()
+                    .map(rpc::client::Client::new)
+                    .collect(),
             })),
         }
     }

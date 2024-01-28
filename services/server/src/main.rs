@@ -1,4 +1,3 @@
-mod config;
 pub mod core;
 
 use consensus::raft::Node;
@@ -16,7 +15,12 @@ use tokio::net::TcpListener;
 #[tokio::main]
 async fn main() -> SimpleResult<()> {
     pretty_env_logger::init();
-    let config = Config::new()?;
+
+    //-- config services/server/config.yml
+    let config = config::initialize_config::<Config>(
+        "Raft consensus sandbox",
+        "Just a raft consensus implementation providing example of how it works",
+    );
     consensus::raft::CORE_NODE.get_or_init(|| Arc::new(Mutex::new(Node::default())));
 
     let addr: SocketAddr =

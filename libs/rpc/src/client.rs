@@ -17,7 +17,7 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(&self, uri: hyper::Uri) -> Self {
+    pub fn new(uri: hyper::Uri) -> Self {
         Self { uri }
     }
 
@@ -39,17 +39,13 @@ impl Client {
         });
 
         let authority = uri.authority().unwrap().clone();
-
         let req = Request::builder()
             .uri(uri)
             .header(hyper::header::HOST, authority.as_str())
             .body(body)?;
 
         let res = sender.send_request(req).await?;
-
         let body = res.collect().await?.aggregate();
-
-        // try to parse as json with serde_json
         let response: RpcResponse = serde_json::from_reader(Buf::reader(body))?;
 
         Ok(response)
