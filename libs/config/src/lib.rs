@@ -35,6 +35,14 @@ impl Config {
     pub fn port(&self) -> u16 {
         *&self.port
     }
+
+    pub fn try_port_from_env(&self) -> Result<u16, ConfigError> {
+        let r = std::env::var("PORT")
+            .unwrap_or_else(|_| self.port.to_string())
+            .parse()?;
+
+        Ok(r)
+    }
 }
 
 pub fn get_config_object<T>(config_name: &str) -> Result<T, ConfigError>
@@ -70,4 +78,6 @@ pub enum ConfigError {
     IO(#[from] io::Error),
     #[error("Parse yaml error")]
     YamlParse(#[from] serde_yaml::Error),
+    #[error("Parse port error")]
+    ParsePort(#[from] std::num::ParseIntError),
 }

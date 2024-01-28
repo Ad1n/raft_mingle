@@ -23,8 +23,10 @@ async fn main() -> SimpleResult<()> {
     );
     consensus::raft::CORE_NODE.get_or_init(|| Arc::new(Mutex::new(Node::default())));
 
-    let addr: SocketAddr =
-        SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), config.port());
+    let addr: SocketAddr = SocketAddr::new(
+        IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+        config.try_port_from_env()?,
+    );
     let listener = TcpListener::bind(&addr).await?;
     info!("Listening on http://{}", addr);
     info!("Hello, raft!");
