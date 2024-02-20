@@ -1,22 +1,22 @@
 [package]
-name = "server"
+name = "rpc"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
-hyper = { workspace = true, features = ["full"]}
-http-body-util.workspace = true
+hyper = { workspace = true, features = ["full"] }
 hyper-util = { workspace = true, features = ["full"] }
 pretty_env_logger.workspace = true
-serde_yaml.workspace = true
-serde.workspace = true
 log.workspace = true
+http-body-util.workspace = true
+bytes.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+thiserror.workspace = true
+getset.workspace = true
+serde_json.workspace = true
+serde.workspace = true
 
-consensus = { path = "../../libs/consensus" }
 error = { path = "../../libs/error" }
-rpc = { path = "../../libs/rpc" }
 config = { path = "../../libs/config" }
-storage = { path = "../../libs/storage" }

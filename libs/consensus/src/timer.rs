@@ -1,8 +1,7 @@
-use std::time::Duration;
-use std::time::Instant;
-use rand::Rng;
-use error::CustomError;
 use crate::raft::Node;
+use error::CustomError;
+use rand::Rng;
+use std::time::{Duration, Instant};
 
 pub struct Timer {
     timeout_duration: Duration,

@@ -3,57 +3,8 @@ use std::{
     fmt::{Debug, Display, Formatter},
 };
 
-pub enum ApplicationError<T: Error> {
-    Internal(InternalError<T>),
-    Custom(CustomError),
-}
-
-pub struct InternalError<T>
-where
-    T: Error,
-{
-    inner: Option<T>,
-}
-
-impl<T> InternalError<T>
-where
-    T: Error + Display,
-{
-    pub fn new(src: T) -> Self {
-        Self { inner: Some(src) }
-    }
-}
-
-impl<T> Display for InternalError<T>
-where
-    T: Error,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match &self.inner {
-            Some(error) => f.write_fmt(format_args!("Internal error:  {}", error)),
-            None => f.write_str("Internal error"),
-        }
-    }
-}
-
-impl<T: Error> Debug for InternalError<T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("InternalError")
-            .field("inner", &self.inner)
-            .finish()
-    }
-}
-
-impl<T: Error> Error for InternalError<T> {}
-
-impl<T> From<T> for InternalError<T>
-where
-    T: Error,
-{
-    fn from(src: T) -> InternalError<T> {
-        InternalError::new(src)
-    }
-}
+pub type GenericError = Box<dyn std::error::Error + Send + Sync>;
+pub type SimpleResult<T> = std::result::Result<T, GenericError>;
 
 #[derive(Debug)]
 pub struct CustomError {
