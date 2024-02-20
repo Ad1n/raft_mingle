@@ -1,7 +1,0 @@
-port: 8101
-scheme: Http
-host: localhost
-rpc_clients:
-  - localhost:8102
-  - localhost:8103
-  

@@ -14,7 +14,6 @@ pretty_env_logger.workspace = true
 serde_yaml.workspace = true
 serde.workspace = true
 log.workspace = true
-uuid.workspace = true
 
 consensus = { path = "../../libs/consensus" }
 error = { path = "../../libs/error" }

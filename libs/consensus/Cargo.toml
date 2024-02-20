@@ -8,6 +8,8 @@ edition = "2021"
 [dependencies]
 tokio.workspace = true
 rand.workspace = true
-uuid.workspace = true
+hyper = { workspace = true, features = ["full"]}
 
 error = { path = "../error" }
+storage = { path = "../storage" }
+rpc = { path = "../rpc" }

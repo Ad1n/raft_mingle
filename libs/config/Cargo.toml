@@ -10,3 +10,4 @@ serde_yaml.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 clap.workspace = true
+hyper = { workspace = true }

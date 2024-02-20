@@ -1,10 +1,12 @@
+use crate::server::ServerCore;
 use crate::timer::Timer;
 use error::CustomError;
+use std::cell::RefCell;
+use std::sync::Weak;
 use std::{
     sync::{Arc, Mutex, MutexGuard, OnceLock},
     time::Instant,
 };
-use uuid::Uuid;
 
 type Term = i64;
 
@@ -13,43 +15,26 @@ pub static CORE_NODE: OnceLock<Arc<Mutex<Node>>> = OnceLock::new();
 /// Raft consensus node
 #[derive(Debug)]
 pub struct Node {
-    pub id: Uuid,
+    pub id: u8,
     pub state: State,
-    pub peer_ids: Vec<Uuid>,
+    pub peer_ids: Vec<u8>,
     pub term: Term,
-    // client: Client,
+    pub server: RefCell<Weak<Mutex<ServerCore>>>,
     pub election_reset_at: Instant,
-    pub voted_for: Option<Uuid>,
-}
-
-impl Default for Node {
-    fn default() -> Self {
-        Self {
-            id: Uuid::new_v4(),
-            state: State::Follower,
-            peer_ids: vec![],
-            term: 0,
-            election_reset_at: Instant::now(),
-            voted_for: None,
-        }
-    }
+    pub voted_for: Option<u8>,
 }
 
 impl Node {
-    pub fn new(
-        id: Uuid,
-        state: State,
-        peer_ids: Vec<Uuid>,
-        term: Term,
-    ) -> Result<Node, CustomError> {
-        Ok(Self {
+    pub fn new(id: u8, peer_ids: Vec<u8>) -> Self {
+        Self {
             id,
-            state,
+            state: State::Follower,
             peer_ids,
-            term,
+            term: 0,
+            server: RefCell::new(Weak::new()),
             election_reset_at: Instant::now(),
             voted_for: None,
-        })
+        }
     }
 
     pub fn start_election(&mut self) -> Result<(), CustomError> {
