@@ -1,17 +1,16 @@
 use consensus::raft::Node;
 use error::SimpleResult;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use axum::routing::{get, post};
 use axum::Router;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use config::Config;
-use hyper_util::rt::TokioIo;
+use consensus::server::ServerCore;
 use log::{error, info};
 use rpc::server::{serve_append_entries, serve_request_vote};
-use tokio::net::TcpListener;
-use tokio::sync::Notify;
+use tokio::sync::{Notify, RwLock};
 
 #[tokio::main]
 async fn main() -> SimpleResult<()> {
@@ -25,16 +24,21 @@ async fn main() -> SimpleResult<()> {
     let config = Config::from_env()?;
 
     consensus::raft::CORE_NODE.get_or_init(|| {
-        let consensus = Arc::new(Mutex::new(Node::new(config.id, config.peer_ids())));
-
-        let server = Arc::new(Mutex::new(consensus::server::ServerCore::new(
+        let consensus = Arc::new(RwLock::new(Node::new(config.id, config.peer_ids())));
+        let server = Arc::new(ServerCore::new(
             config.id,
             config.peer_ids(),
             config.clients_uris(),
-        )));
+        ));
 
-        *server.lock().unwrap().consensus.borrow_mut() = Arc::downgrade(&consensus);
-        *consensus.lock().unwrap().server.borrow_mut() = Arc::downgrade(&server);
+        {
+            *server.consensus.blocking_write() = Arc::downgrade(&consensus);
+        }
+
+        {
+            consensus.blocking_write().server = Arc::downgrade(&server);
+        }
+
         consensus
     });
 
@@ -51,21 +55,23 @@ async fn main() -> SimpleResult<()> {
 
         let addr: SocketAddr = SocketAddr::new(
             IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-            Config::try_from_env("PORT")?,
+            Config::try_from_env("PORT").expect("Port missing"),
         );
         info!("Listening on http://{}", &addr);
-        let listener = tokio::net::TcpListener::bind(addr).await?;
+        let listener = tokio::net::TcpListener::bind(addr)
+            .await
+            .expect("Failed to bind to address");
 
-        axum::serve(listener, app).await?;
+        axum::serve(listener, app).await.expect("Server run failed");
     });
 
     tokio::spawn(async move {
-        consensus::raft::CORE_NODE
-            .get()
-            .map(|node| match node.clone().lock() {
-                Ok(mut node) => node.start_election_timeout(),
-                Err(err) => return err,
-            })
+        if let Some(node) = consensus::raft::CORE_NODE.get() {
+            let node = node.clone();
+            //FIXME:  decouple Node and Server
+        } else {
+            error!("Unassigned node")
+        }
     });
 
     // Listen for CTRL+C signal for graceful shutdown

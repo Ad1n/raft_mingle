@@ -84,21 +84,21 @@ pub enum RpcRequest {
 }
 
 #[derive(Serialize, Deserialize)]
-pub(crate) struct RequestVoteRequest {
-    pub(crate) term: usize,
-    candidate_id: usize,
-    last_log_index: usize,
-    last_log_term: usize,
+pub struct RequestVoteRequest {
+    pub term: usize,
+    pub candidate_id: usize,
+    pub last_log_index: usize,
+    pub last_log_term: usize,
 }
 
 #[derive(Serialize, Deserialize)]
-pub(crate) struct AppendEntriesRequest {
-    term: usize,
-    leader_id: usize,
-    prev_log_index: usize,
-    prev_log_term: usize,
-    entries: Vec<LogEntry>,
-    leader_commit: usize,
+pub struct AppendEntriesRequest {
+    pub term: usize,
+    pub leader_id: usize,
+    pub prev_log_index: usize,
+    pub prev_log_term: usize,
+    pub entries: Vec<LogEntry>,
+    pub leader_commit: usize,
 }
 
 #[derive(Deserialize)]
@@ -108,15 +108,15 @@ pub enum RpcResponse {
 }
 
 #[derive(Serialize, Deserialize)]
-pub(crate) struct RequestVoteResponse {
-    pub(crate) term: usize,
-    pub(crate) vote_granted: bool,
+pub struct RequestVoteResponse {
+    pub term: usize,
+    pub vote_granted: bool,
 }
 
 #[derive(Serialize, Deserialize)]
-pub(crate) struct AppendEntriesResponse {
-    term: usize,
-    pub(crate) success: bool,
+pub struct AppendEntriesResponse {
+    pub term: usize,
+    pub success: bool,
 }
 
 #[derive(Error, Debug)]

@@ -1,19 +1,17 @@
 use crate::server::ServerCore;
-use crate::timer::Timer;
-use async_trait::async_trait;
 use error::CustomError;
 use log::{error, info};
 use log_entry::LogEntry;
-use rpc::client::RpcClientError;
-use std::cell::RefCell;
-use std::sync::{LockResult, Weak};
+use rpc::client::RequestVoteRequest;
+use std::sync::Weak;
 use std::{
     sync::{Arc, Mutex, MutexGuard, OnceLock},
     time::Instant,
 };
+use tokio::sync::{RwLock, RwLockWriteGuard};
 use tokio::time::{self, Duration};
 
-pub static CORE_NODE: OnceLock<Arc<Mutex<Node>>> = OnceLock::new(); //TODO: Maybe RwLock ?
+pub static CORE_NODE: OnceLock<Arc<RwLock<Node>>> = OnceLock::new();
 
 /// Raft consensus node
 #[derive(Debug)]
@@ -22,7 +20,7 @@ pub struct Node {
     pub state: State,
     pub peer_ids: Vec<usize>,
     pub current_term: usize,
-    pub server: RefCell<Weak<Mutex<ServerCore>>>,
+    pub server: Weak<ServerCore>,
     pub election_reset_at: Instant,
     pub voted_for: Option<usize>,
     pub log: Vec<LogEntry>,
@@ -32,17 +30,18 @@ pub struct Node {
 
 impl Node {
     pub fn new(id: usize, peer_ids: Vec<usize>) -> Self {
+        let len = peer_ids.len();
         Self {
             id,
             state: State::Follower,
             peer_ids,
             current_term: 0,
-            server: RefCell::new(Weak::new()),
+            server: Weak::new(),
             election_reset_at: Instant::now(),
             voted_for: None,
             log: vec![],
-            next_index: vec![0; peer_ids.len()], // Placeholder values, will be updated when becoming a leader
-            match_index: vec![0; peer_ids.len()], // Similarly, placeholder values
+            next_index: vec![0; len], // Placeholder values, will be updated when becoming a leader
+            match_index: vec![0; len], // Similarly, placeholder values
         }
     }
 
@@ -79,14 +78,10 @@ impl Node {
 
         info!("ID: {} becomes CANDIDATE at term: {}", self.id, term);
 
-        let server_guard = self
+        let server = self
             .server
-            .borrow()
             .upgrade()
             .ok_or_else(|| CustomError::new("Server upgrade failed"))?;
-        let server = server_guard
-            .lock()
-            .map_err(|e| CustomError::new(&e.to_string()))?;
 
         let futures: Vec<_> = server
             .rpc_clients
@@ -98,7 +93,12 @@ impl Node {
                 let last_log_term = last_log_term;
                 async move {
                     client
-                        .request_vote(term, candidate_id, last_log_index, last_log_term)
+                        .request_vote(RequestVoteRequest {
+                            term,
+                            candidate_id,
+                            last_log_index,
+                            last_log_term,
+                        })
                         .await
                 }
             })
@@ -109,7 +109,7 @@ impl Node {
         let votes: usize = results
             .into_iter()
             .filter_map(Result::ok)
-            .filter(|&granted| granted)
+            .filter(|request_vote_response| request_vote_response.vote_granted)
             .count()
             + 1; // Include self-vote
 
@@ -136,39 +136,6 @@ impl Node {
 
         Ok(())
     }
-
-    pub fn get_guarded<'a>() -> Result<MutexGuard<'a, Node>, CustomError> {
-        match CORE_NODE.get() {
-            Some(guard) => Ok(guard
-                .lock()
-                .map_err(|err| CustomError::new(&err.to_string()))?),
-            None => Err(CustomError::new("CORE_NODE is not initialized")),
-        }
-    }
-
-    pub fn execute_one_iteration(
-        term: usize,
-        election_reset_event: Instant,
-    ) -> Result<bool, CustomError> {
-        match Self::get_guarded() {
-            Ok(node) => {
-                if node.state == State::Leader {
-                    return Ok(false);
-                };
-                if node.current_term != term {
-                    return Ok(false);
-                }
-                if Instant::now().duration_since(election_reset_event)
-                    >= Timer::generate_election_duration_time()
-                {
-                    return Ok(false);
-                }
-
-                Ok(true)
-            },
-            Err(err) => Err(err),
-        }
-    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -176,9 +143,4 @@ pub enum State {
     Follower,
     Candidate,
     Leader,
-}
-
-pub struct Election<'a> {
-    timer: Timer,
-    node: &'a Node,
 }

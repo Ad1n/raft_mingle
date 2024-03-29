@@ -39,6 +39,9 @@ pub async fn serve_request_vote(
 pub async fn serve_append_entries(
     Json(payload): Json<AppendEntriesRequest>,
 ) -> Json<AppendEntriesResponse> {
-    // Implement your logic here based on `payload`
-    Json(AppendEntriesResponse { success: true })
+    // Implement your logic here based on `payload` FIXME term
+    Json(AppendEntriesResponse {
+        term: 1,
+        success: true,
+    })
 }
