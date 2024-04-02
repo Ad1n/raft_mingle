@@ -1,17 +1,23 @@
-use crate::server::ServerCore;
+use crate::server::SERVER_CORE;
 use error::CustomError;
 use log::{error, info};
 use log_entry::LogEntry;
 use rpc::client::RequestVoteRequest;
-use std::sync::Weak;
 use std::{
-    sync::{Arc, Mutex, MutexGuard, OnceLock},
+    sync::{Arc, OnceLock},
     time::Instant,
 };
 use tokio::sync::{RwLock, RwLockWriteGuard};
 use tokio::time::{self, Duration};
 
 pub static CORE_NODE: OnceLock<Arc<RwLock<Node>>> = OnceLock::new();
+
+pub fn try_get_core_node() -> Arc<RwLock<Node>> {
+    match CORE_NODE.get() {
+        None => panic!("Node is empty"),
+        Some(inner) => inner.clone(),
+    }
+}
 
 /// Raft consensus node
 #[derive(Debug)]
@@ -20,7 +26,6 @@ pub struct Node {
     pub state: State,
     pub peer_ids: Vec<usize>,
     pub current_term: usize,
-    pub server: Weak<ServerCore>,
     pub election_reset_at: Instant,
     pub voted_for: Option<usize>,
     pub log: Vec<LogEntry>,
@@ -36,7 +41,6 @@ impl Node {
             state: State::Follower,
             peer_ids,
             current_term: 0,
-            server: Weak::new(),
             election_reset_at: Instant::now(),
             voted_for: None,
             log: vec![],
@@ -45,17 +49,23 @@ impl Node {
         }
     }
 
-    pub async fn start_election_timeout(&mut self) {
+    pub async fn start_election_timeout<'a>(
+        node: Arc<RwLock<Node>>,
+        lock: RwLockWriteGuard<'a, Node>,
+    ) {
+        drop(lock);
+
         let timeout_duration = Duration::from_millis(150 + rand::random::<u64>() % 150);
         let mut interval = time::interval(timeout_duration);
 
         interval.tick().await; // Skip the first tick
         loop {
             interval.tick().await;
-            if self.state == State::Follower {
+            let node_write_guard = node.write().await;
+            if node_write_guard.state == State::Follower {
                 info!("Election timeout reached, transitioning to Candidate");
-                match self.become_candidate().await {
-                    Ok(r) => break,
+                match Node::become_candidate(node_write_guard).await {
+                    Ok(_) => break,
                     Err(err) => {
                         error!("Error on becoming candidate: {}", err.to_string());
                     },
@@ -64,24 +74,32 @@ impl Node {
         }
     }
 
-    pub async fn become_candidate(&mut self) -> Result<(), CustomError> {
-        self.state = State::Candidate;
-        self.current_term += 1;
-        self.voted_for = Some(self.id);
+    pub async fn become_candidate<'a>(
+        mut node_write_guard: RwLockWriteGuard<'a, Node>,
+    ) -> Result<(), CustomError> {
+        node_write_guard.state = State::Candidate;
+        node_write_guard.current_term += 1;
+        node_write_guard.voted_for = Some(node_write_guard.id);
         let self_vote = 1;
-        let votes_needed = (self.peer_ids.len() / 2) + 1; // Majority
-        let term = self.current_term;
+        let votes_needed = (node_write_guard.peer_ids.len() / 2) + 1; // Majority
+        let term = node_write_guard.current_term;
         // self.election_reset_at = Instant::now();
-        let last_log_index = self.log.len().saturating_sub(1);
-        let last_log_term = self.log.last().map_or(0, |entry| entry.term);
-        let candidate_id = self.id;
+        let last_log_index = node_write_guard.log.len().saturating_sub(1);
+        let last_log_term = node_write_guard.log.last().map_or(0, |entry| entry.term);
+        let candidate_id = node_write_guard.id;
 
-        info!("ID: {} becomes CANDIDATE at term: {}", self.id, term);
+        info!(
+            "ID: {} becomes CANDIDATE at term: {}",
+            node_write_guard.id, term
+        );
 
-        let server = self
-            .server
-            .upgrade()
-            .ok_or_else(|| CustomError::new("Server upgrade failed"))?;
+        drop(node_write_guard);
+
+        let server_arc = SERVER_CORE
+            .get()
+            .ok_or(CustomError::new("Server is not initialized"))
+            .map(Arc::clone)?;
+        let server = server_arc.read().await;
 
         let futures: Vec<_> = server
             .rpc_clients
@@ -113,23 +131,27 @@ impl Node {
             .count()
             + 1; // Include self-vote
 
+        let lock = try_get_core_node();
+        let mut node_write_guard = lock.write().await;
+
         if votes >= votes_needed {
-            self.state = State::Leader;
+            node_write_guard.state = State::Leader;
             info!(
                 "Node {} became leader in term {}",
-                self.id, self.current_term
+                node_write_guard.id, node_write_guard.current_term
             );
             // Correctly initialize next_index for each follower to the current length of the log_entry
-            self.next_index = vec![self.log.len(); self.peer_ids.len()];
+            node_write_guard.next_index =
+                vec![node_write_guard.log.len(); node_write_guard.peer_ids.len()];
 
             // Initialize match_index for each follower to 0
-            self.match_index = vec![0; self.peer_ids.len()];
+            node_write_guard.match_index = vec![0; node_write_guard.peer_ids.len()];
 
             //TODO: Heartbeats
         } else {
             info!(
                 "Node {} failed to become leader in term {}",
-                self.id, self.current_term
+                node_write_guard.id, node_write_guard.current_term
             );
             // Handle election failure (e.g., revert to follower state)
         }

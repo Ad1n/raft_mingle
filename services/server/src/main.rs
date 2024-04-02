@@ -7,9 +7,10 @@ use axum::Router;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use config::Config;
-use consensus::server::ServerCore;
+use consensus::server::{ServerCore, SERVER_CORE};
 use log::{error, info};
 use rpc::server::{serve_append_entries, serve_request_vote};
+use storage::simple_storage::{SimpleStorage, STORAGE};
 use tokio::sync::{Notify, RwLock};
 
 #[tokio::main]
@@ -23,24 +24,18 @@ async fn main() -> SimpleResult<()> {
 
     let config = Config::from_env()?;
 
-    consensus::raft::CORE_NODE.get_or_init(|| {
-        let consensus = Arc::new(RwLock::new(Node::new(config.id, config.peer_ids())));
-        let server = Arc::new(ServerCore::new(
+    STORAGE.get_or_init(|| Arc::new(RwLock::new(SimpleStorage::new())));
+
+    SERVER_CORE.get_or_init(|| {
+        Arc::new(RwLock::new(ServerCore::new(
             config.id,
             config.peer_ids(),
             config.clients_uris(),
-        ));
-
-        {
-            *server.consensus.blocking_write() = Arc::downgrade(&consensus);
-        }
-
-        {
-            consensus.blocking_write().server = Arc::downgrade(&server);
-        }
-
-        consensus
+        )))
     });
+
+    consensus::raft::CORE_NODE
+        .get_or_init(|| Arc::new(RwLock::new(Node::new(config.id, config.peer_ids()))));
 
     // Create a shared notification mechanism for graceful shutdown
     let shutdown_notify = Arc::new(Notify::new());
@@ -67,10 +62,11 @@ async fn main() -> SimpleResult<()> {
 
     tokio::spawn(async move {
         if let Some(node) = consensus::raft::CORE_NODE.get() {
-            let node = node.clone();
-            //FIXME:  decouple Node and Server
+            let lock = node.write().await;
+            Node::start_election_timeout(node.clone(), lock).await
         } else {
-            error!("Unassigned node")
+            error!("Unassigned node");
+            panic!("Node is unassigned")
         }
     });
 

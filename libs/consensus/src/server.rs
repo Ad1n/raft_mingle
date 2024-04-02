@@ -1,15 +1,15 @@
 use crate::raft;
 use reqwest::Url;
 use rpc::client::RpcClient;
-use std::sync::Weak;
+use std::sync::{Arc, OnceLock, Weak};
 use storage::simple_storage::SimpleStorage;
 use tokio::sync::RwLock;
+
+pub static SERVER_CORE: OnceLock<Arc<RwLock<ServerCore>>> = OnceLock::new();
 
 pub struct ServerCore {
     pub id: usize,
     pub peer_ids: Vec<usize>,
-    pub consensus: RwLock<Weak<RwLock<raft::Node>>>,
-    pub storage: SimpleStorage,
     pub rpc_clients: Vec<RpcClient>,
 }
 
@@ -18,8 +18,6 @@ impl ServerCore {
         Self {
             id,
             peer_ids,
-            consensus: RwLock::new(Weak::new()),
-            storage: SimpleStorage::new(),
             rpc_clients: clients_uris.into_iter().map(RpcClient::new).collect(),
         }
     }

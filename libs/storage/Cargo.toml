@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 error = { path = "../../libs/error" }
 thiserror.workspace = true
+tokio.workspace = true
