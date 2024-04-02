@@ -8,8 +8,13 @@ edition = "2021"
 [dependencies]
 tokio.workspace = true
 rand.workspace = true
-hyper = { workspace = true, features = ["full"]}
+axum.workspace = true
+async-trait.workspace = true
+futures-util.workspace = true
+log.workspace = true
+reqwest.workspace = true
 
 error = { path = "../error" }
 storage = { path = "../storage" }
 rpc = { path = "../rpc" }
+log_entry = { path = "../../libs/log_entry" }

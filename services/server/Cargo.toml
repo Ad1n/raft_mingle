@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
-hyper = { workspace = true, features = ["full"]}
+axum.workspace = true
 http-body-util.workspace = true
 hyper-util = { workspace = true, features = ["full"] }
 pretty_env_logger.workspace = true

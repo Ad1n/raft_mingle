@@ -1,12 +1,13 @@
 use clap::{arg, Command};
+use reqwest::Url;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::error::Error;
 use std::ffi::OsStr;
 use std::fmt::{Display, Formatter};
+use std::io;
 use std::str::FromStr;
-use std::{io, io::Read};
 use thiserror::Error;
 
 #[derive(Debug, Clone)]
@@ -14,8 +15,8 @@ pub struct Config {
     pub port: u16,
     pub scheme: Scheme,
     pub host: Host,
-    pub id: u8,
-    pub rpc_clients: HashMap<u8, hyper::Uri>,
+    pub id: usize,
+    pub rpc_clients: HashMap<usize, Url>,
 }
 
 pub type Host = String;
@@ -32,21 +33,21 @@ impl Config {
             .into_iter()
             .map(|p| {
                 let uri_str = format!("http://localhost:{}", p);
-                hyper::Uri::try_from(&uri_str)
+                Url::parse(&uri_str)
             })
             .map(|r| r.unwrap())
             .collect();
 
         let peer_ids = Self::try_from_env_with_delimiter("PEER_IDS")
             .iter()
-            .map(|s| u8::from_str(s).unwrap())
-            .collect::<Vec<u8>>();
+            .map(|s| usize::from_str(s).unwrap())
+            .collect::<Vec<usize>>();
 
         let rpc_clients = HashMap::from(
             peer_ids
                 .into_iter()
                 .zip(rpc_uris.into_iter())
-                .collect::<HashMap<u8, hyper::Uri>>(),
+                .collect::<HashMap<usize, Url>>(),
         );
 
         Ok(Self {
@@ -79,11 +80,11 @@ impl Config {
             .collect::<Vec<String>>()
     }
 
-    pub fn peer_ids(&self) -> Vec<u8> {
+    pub fn peer_ids(&self) -> Vec<usize> {
         self.rpc_clients.keys().cloned().collect()
     }
 
-    pub fn clients_uris(&self) -> Vec<hyper::Uri> {
+    pub fn clients_uris(&self) -> Vec<Url> {
         self.rpc_clients.values().cloned().collect()
     }
 }

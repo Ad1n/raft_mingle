@@ -1,27 +1,31 @@
 use crate::raft;
-use std::cell::RefCell;
-use std::sync::{Mutex, Weak};
+use reqwest::Url;
+use rpc::client::RpcClient;
+use std::sync::{Arc, OnceLock, Weak};
 use storage::simple_storage::SimpleStorage;
+use tokio::sync::RwLock;
+
+pub static SERVER_CORE: OnceLock<Arc<RwLock<ServerCore>>> = OnceLock::new();
 
 pub struct ServerCore {
-    pub id: u8,
-    pub peer_ids: Vec<u8>,
-    pub consensus: RefCell<Weak<Mutex<raft::Node>>>,
-    pub storage: SimpleStorage,
-    pub rpc_clients: Vec<rpc::client::Client>,
+    pub id: usize,
+    pub peer_ids: Vec<usize>,
+    pub rpc_clients: Vec<RpcClient>,
 }
 
 impl ServerCore {
-    pub fn new(id: u8, peer_ids: Vec<u8>, clients_uris: Vec<hyper::Uri>) -> Self {
+    pub fn new(id: usize, peer_ids: Vec<usize>, clients_uris: Vec<Url>) -> Self {
         Self {
             id,
             peer_ids,
-            consensus: RefCell::new(Weak::new()),
-            storage: SimpleStorage::new(),
-            rpc_clients: clients_uris
-                .into_iter()
-                .map(rpc::client::Client::new)
-                .collect(),
+            rpc_clients: clients_uris.into_iter().map(RpcClient::new).collect(),
         }
+    }
+
+    pub fn peers_with_clients(&self) -> impl Iterator<Item = (&usize, &RpcClient)> {
+        self.peer_ids
+            .iter()
+            .zip(self.rpc_clients.iter())
+            .map(|(id, client)| (id, client))
     }
 }
