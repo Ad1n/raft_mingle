@@ -1,22 +1,10 @@
-use crate::Endpoint;
-use axum::body::Body;
-use axum::extract::path::ErrorKind;
-use axum::extract::path::ErrorKind::ParseError;
-use axum::http::{Request, Uri};
-use bytes::Buf;
-use error::CustomError;
-use getset::Getters;
-use http_body_util::BodyExt;
-use hyper_util::rt::TokioIo;
+use crate::rpc::Endpoint;
 use log_entry::LogEntry;
-use reqwest::{Client as ReqwestClient, Client, Error as ReqwestError, Url};
-use serde::de::{DeserializeOwned, Error};
+use reqwest::{Client as ReqwestClient, Error as ReqwestError, Url};
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use std::backtrace::Backtrace;
 use std::io;
-use std::str::FromStr;
 use thiserror::Error;
-use tokio::net::TcpStream;
 
 #[derive(Debug, Clone)]
 pub struct RpcClient {

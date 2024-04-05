@@ -7,9 +7,9 @@ use axum::Router;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use config::Config;
+use consensus::rpc::server::{serve_append_entries, serve_request_vote};
 use consensus::server::{ServerCore, SERVER_CORE};
 use log::{error, info};
-use rpc::server::{serve_append_entries, serve_request_vote};
 use storage::simple_storage::{SimpleStorage, STORAGE};
 use tokio::sync::{Notify, RwLock};
 
@@ -75,7 +75,7 @@ async fn main() -> SimpleResult<()> {
         .await
         .expect("Failed to listen for ctrl+c");
     info!("CTRL+C received, shutting down...");
-    shutdown_notify.notify_one(); // Trigger shutdown of the server
+    server_shutdown.notify_one(); // Trigger shutdown of the server
 
     // Await the server task to finish
     server_handle.await?;
