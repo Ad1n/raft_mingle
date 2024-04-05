@@ -1,8 +1,8 @@
-use std::fmt;
-use std::str::FromStr;
-
 pub mod client;
 pub mod server;
+
+use std::fmt;
+use std::str::FromStr;
 
 pub enum Endpoint {
     RequestVote,

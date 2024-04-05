@@ -1,8 +1,6 @@
-use crate::raft;
+use crate::rpc::client::RpcClient;
 use reqwest::Url;
-use rpc::client::RpcClient;
-use std::sync::{Arc, OnceLock, Weak};
-use storage::simple_storage::SimpleStorage;
+use std::sync::{Arc, OnceLock};
 use tokio::sync::RwLock;
 
 pub static SERVER_CORE: OnceLock<Arc<RwLock<ServerCore>>> = OnceLock::new();
