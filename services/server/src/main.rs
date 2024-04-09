@@ -62,8 +62,7 @@ async fn main() -> SimpleResult<()> {
 
     tokio::spawn(async move {
         if let Some(node) = consensus::raft::CORE_NODE.get() {
-            let lock = node.write().await;
-            Node::start_election_timeout(node.clone(), lock).await
+            Node::start_election_timeout(node.clone()).await
         } else {
             error!("Unassigned node");
             panic!("Node is unassigned")

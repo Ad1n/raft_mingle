@@ -7,7 +7,7 @@ use std::{
     sync::{Arc, OnceLock},
     time::Instant,
 };
-use tokio::sync::{RwLock, RwLockWriteGuard};
+use tokio::sync::RwLock;
 use tokio::time::{self, Duration};
 
 pub static CORE_NODE: OnceLock<Arc<RwLock<Node>>> = OnceLock::new();
@@ -66,22 +66,20 @@ impl Node {
         }
     }
 
-    pub async fn start_election_timeout<'a>(
-        node: Arc<RwLock<Node>>,
-        lock: RwLockWriteGuard<'a, Node>,
-    ) {
-        drop(lock);
-
+    pub async fn start_election_timeout(node: Arc<RwLock<Node>>) {
         let timeout_duration = Duration::from_millis(150 + rand::random::<u64>() % 150);
         let mut interval = time::interval(timeout_duration);
 
         interval.tick().await; // Skip the first tick
         loop {
             interval.tick().await;
-            let node_write_guard = node.write().await; //FIXME maybe read here ?!
-            if node_write_guard.state == State::Follower {
+            let cloned_node = node.clone();
+            let node_read_guard = cloned_node.read().await;
+            if node_read_guard.state == State::Follower {
+                drop(node_read_guard);
+
                 info!("Election timeout reached, transitioning to Candidate");
-                match Node::become_candidate(node_write_guard).await {
+                match Node::become_candidate().await {
                     Ok(_) => break,
                     Err(err) => {
                         error!("Error on becoming candidate: {}", err.to_string());
@@ -91,9 +89,10 @@ impl Node {
         }
     }
 
-    pub async fn become_candidate<'a>(
-        mut node_write_guard: RwLockWriteGuard<'a, Node>,
-    ) -> Result<(), CustomError> {
+    pub async fn become_candidate() -> Result<(), CustomError> {
+        let core_node = try_get_core_node();
+        let mut node_write_guard = core_node.write().await;
+
         node_write_guard.state = State::Candidate;
         node_write_guard.current_term += 1;
         node_write_guard.voted_for = Some(node_write_guard.id);
