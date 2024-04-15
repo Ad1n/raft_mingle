@@ -18,6 +18,19 @@ impl SimpleStorage {
             data: BTreeMap::new(),
         }
     }
+
+    pub fn serialize_data(&self) -> Result<Vec<u8>, serde_json::Error> {
+        //FIXME: Error handling
+        serde_json::to_vec(&self.data)
+    }
+
+    pub fn deserialize_data(
+        &mut self,
+        serialized_data: &[u8],
+    ) -> Result<(), serde_json::Error> {
+        self.data = serde_json::from_slice(serialized_data)?;
+        Ok(())
+    }
 }
 
 impl trait_impl::Storage for SimpleStorage {

@@ -7,9 +7,11 @@ use axum::Router;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use config::Config;
-use consensus::rpc::server::{serve_append_entries, serve_request_vote};
+use consensus::rpc::server::{
+    serve_append_entries, serve_install_snapshot, serve_request_vote,
+};
 use consensus::server::{ServerCore, SERVER_CORE};
-use log::{error, info};
+use log::info;
 use storage::simple_storage::{SimpleStorage, STORAGE};
 use tokio::sync::{Notify, RwLock};
 
@@ -46,6 +48,7 @@ async fn main() -> SimpleResult<()> {
         let app = Router::new()
             .route("/", get(|| async { "Hello, Raft!" }))
             .route("/request_vote", post(serve_request_vote))
+            .route("/install_snapshot", post(serve_install_snapshot))
             .route("/append_entries", post(serve_append_entries));
 
         let addr: SocketAddr = SocketAddr::new(
@@ -60,14 +63,7 @@ async fn main() -> SimpleResult<()> {
         axum::serve(listener, app).await.expect("Server run failed");
     });
 
-    tokio::spawn(async move {
-        if let Some(node) = consensus::raft::CORE_NODE.get() {
-            Node::start_election_timeout(node.clone()).await
-        } else {
-            error!("Unassigned node");
-            panic!("Node is unassigned")
-        }
-    });
+    tokio::spawn(async move { Node::start_election_timeout().await });
 
     // Listen for CTRL+C signal for graceful shutdown
     tokio::signal::ctrl_c()

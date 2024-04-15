@@ -56,7 +56,7 @@ impl RpcClient {
         Ok(response)
     }
 
-    pub async fn send_heartbeat(
+    pub async fn send_append_entries(
         &self,
         request: AppendEntriesRequest,
     ) -> Result<AppendEntriesResponse, RpcClientError> {
@@ -69,6 +69,7 @@ impl RpcClient {
 pub enum RpcRequest {
     RequestVote(RequestVoteRequest),
     AppendEntries(AppendEntriesRequest),
+    InstallSnapshot(InstallSnapshotRequest),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -89,10 +90,20 @@ pub struct AppendEntriesRequest {
     pub leader_commit: usize,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct InstallSnapshotRequest {
+    pub term: usize,                // leader's term
+    pub leader_id: usize,           // so follower can redirect clients
+    pub last_included_index: usize, // the snapshot replaces all entries up through and including this index
+    pub last_included_term: usize,  // term of last_included_index
+    pub data: Vec<u8>,              // snapshot data
+}
+
 #[derive(Deserialize)]
 pub enum RpcResponse {
     RequestVote(RequestVoteResponse),
     AppendEntries(AppendEntriesResponse),
+    InstallSnapshot(InstallSnapshotResponse),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -105,6 +116,11 @@ pub struct RequestVoteResponse {
 pub struct AppendEntriesResponse {
     pub term: usize,
     pub success: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct InstallSnapshotResponse {
+    pub term: usize, // currentTerm, for leader to update itself
 }
 
 #[derive(Error, Debug)]
