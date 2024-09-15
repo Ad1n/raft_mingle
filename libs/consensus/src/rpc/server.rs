@@ -1,7 +1,10 @@
+use crate::raft::{Node, State};
 use crate::rpc::client::{
-    AppendEntriesRequest, AppendEntriesResponse, RequestVoteRequest, RequestVoteResponse,
+    AppendEntriesRequest, AppendEntriesResponse, InstallSnapshotRequest,
+    InstallSnapshotResponse, RequestVoteRequest, RequestVoteResponse,
 };
 use axum::Json;
+use log::{error, info};
 
 pub async fn serve_request_vote(
     Json(payload): Json<RequestVoteRequest>,
@@ -97,4 +100,49 @@ pub async fn serve_append_entries(
         term: node.current_term,
         success: true,
     })
+}
+
+pub async fn serve_install_snapshot(
+    Json(payload): Json<InstallSnapshotRequest>,
+) -> Json<InstallSnapshotResponse> {
+    let node_arc = crate::raft::try_get_core_node();
+    let mut term_updated = false;
+
+    {
+        let mut node = node_arc.write().await;
+
+        if payload.term < node.current_term {
+            // If the request's term is less than the node's current term, ignore it
+            return Json(InstallSnapshotResponse {
+                term: node.current_term,
+            });
+        }
+
+        if payload.term > node.current_term {
+            info!("[INSTALL_SNAPSHOT] Updating current term and resetting voted_for.");
+            node.current_term = payload.term;
+            node.voted_for = None; // Reset voted_for on term update
+            node.state = State::Follower; // Ensure node becomes a follower if it sees a higher term
+            term_updated = true;
+        }
+    }
+
+    if term_updated {
+        info!("[INSTALL_SNAPSHOT] Term updated, proceeding to apply snapshot.");
+    }
+
+    let payload_term = payload.term;
+    match Node::apply_snapshot(payload).await {
+        Ok(_) => {
+            // Respond to the leader that the snapshot has been applied
+            Json(InstallSnapshotResponse { term: payload_term })
+        },
+        Err(err) => {
+            error!("[INSTALL_SNAPSHOT] Error: {}", err.to_string());
+
+            Json(InstallSnapshotResponse {
+                term: node_arc.read().await.current_term,
+            })
+        },
+    }
 }

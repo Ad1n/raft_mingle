@@ -1,4 +1,7 @@
-use crate::rpc::client::RequestVoteRequest;
+pub mod command;
+
+use crate::raft::command::Command;
+use crate::rpc::client::{InstallSnapshotRequest, RequestVoteRequest};
 use crate::server::SERVER_CORE;
 use error::CustomError;
 use log::{error, info};
@@ -7,7 +10,7 @@ use std::{
     sync::{Arc, OnceLock},
     time::Instant,
 };
-use tokio::sync::{RwLock, RwLockWriteGuard};
+use tokio::sync::RwLock;
 use tokio::time::{self, Duration};
 
 pub static CORE_NODE: OnceLock<Arc<RwLock<Node>>> = OnceLock::new();
@@ -31,6 +34,7 @@ pub fn try_get_core_node() -> Arc<RwLock<Node>> {
 #[derive(Debug)]
 pub struct Node {
     pub id: usize,                  // Unique identifier for the node
+    pub leader_id: Option<usize>, // Tracks the current leader's ID if known FIXME add logic for knowing leader
     pub state: State, // Track whether the node is a Leader, Follower, or Candidate
     pub peer_ids: Vec<usize>, // A list of the IDs of other nodes in the cluster; critical for communication
     pub current_term: usize, // Tracks the latest term the node knows; crucial for elections and consistency checks
@@ -53,6 +57,7 @@ impl Node {
         let len = peer_ids.len();
         Self {
             id,
+            leader_id: None,
             state: State::Follower, // Nodes start as Followers.
             peer_ids,
             current_term: 0,                   // Start in term 0.
@@ -66,34 +71,43 @@ impl Node {
         }
     }
 
-    pub async fn start_election_timeout<'a>(
-        node: Arc<RwLock<Node>>,
-        lock: RwLockWriteGuard<'a, Node>,
-    ) {
-        drop(lock);
+    pub async fn start_election_timeout() {
+        let node = try_get_core_node();
 
-        let timeout_duration = Duration::from_millis(150 + rand::random::<u64>() % 150);
-        let mut interval = time::interval(timeout_duration);
-
-        interval.tick().await; // Skip the first tick
         loop {
-            interval.tick().await;
-            let node_write_guard = node.write().await; //FIXME maybe read here ?!
-            if node_write_guard.state == State::Follower {
+            let timeout_duration =
+                Duration::from_millis(150 + rand::random::<u64>() % 150);
+            time::sleep(timeout_duration).await;
+
+            let node_read_guard = node.read().await;
+
+            // Check if the node is still a follower before attempting to become a candidate
+            if node_read_guard.state == State::Follower {
+                drop(node_read_guard);
+
                 info!("Election timeout reached, transitioning to Candidate");
-                match Node::become_candidate(node_write_guard).await {
-                    Ok(_) => break,
+                match Node::become_candidate().await {
+                    Ok(_) => {
+                        info!("Successfully transitioned to Candidate state.");
+                        break; // Successfully started candidate state, exit loop
+                    },
                     Err(err) => {
                         error!("Error on becoming candidate: {}", err.to_string());
+                        // Continue the loop to retry becoming a candidate
                     },
-                };
+                }
+            } else {
+                // If not a follower, there's no need to continue the timeout loop
+                info!("Node state changed, no longer a follower, stopping election timeout.");
+                break;
             }
         }
     }
 
-    pub async fn become_candidate<'a>(
-        mut node_write_guard: RwLockWriteGuard<'a, Node>,
-    ) -> Result<(), CustomError> {
+    pub async fn become_candidate() -> Result<(), CustomError> {
+        let core_node = try_get_core_node();
+        let mut node_write_guard = core_node.write().await;
+
         node_write_guard.state = State::Candidate;
         node_write_guard.current_term += 1;
         node_write_guard.voted_for = Some(node_write_guard.id);
@@ -157,6 +171,8 @@ impl Node {
                 "Node {} became leader in term {}",
                 node_write_guard.id, node_write_guard.current_term
             );
+
+            drop(node_write_guard);
         } else {
             // Remain or revert to follower state
             node_write_guard.state = State::Follower;
@@ -164,9 +180,36 @@ impl Node {
                 "Node {} failed to become leader in term {}, remains as Follower",
                 node_write_guard.id, node_write_guard.current_term
             );
+
+            drop(node_write_guard);
+
+            //Restart the election timeout to handle possible future candidacy
+            tokio::spawn(
+                async move { Command::send(Command::StartElectionTimeout).await },
+            );
         }
 
-        drop(node_write_guard);
+        Ok(())
+    }
+
+    // This method applies a snapshot to the node.
+    pub async fn apply_snapshot(
+        snapshot_request: InstallSnapshotRequest,
+    ) -> Result<(), CustomError> {
+        let node_arc = try_get_core_node();
+        let mut node = node_arc.write().await;
+
+        // Assuming you have a method to update the state machine to the snapshot's state
+        // node.update_state_machine_to_snapshot(&snapshot_request.snapshot_data)?; FIXME update state machine
+
+        node.current_term = snapshot_request.term;
+        node.commit_index = snapshot_request.last_included_index;
+        node.last_applied = snapshot_request.last_included_index;
+
+        // Reset log to ensure it's consistent with the snapshot
+        // This might mean keeping entries after last_included_index if such entries exist
+        node.log = vec![]; // Simplified: real implementation may adjust based on snapshot details
+
         Ok(())
     }
 }
