@@ -16,7 +16,7 @@ case $TARGET in
         VERSION="${CI_COMMIT_SHORT_SHA}_aarch64"
         export CC=aarch64-linux-gnu-gcc
         export CXX=aarch64-linux-gnu-g++
-        export CFLAGS="-mcpu=neoverse-n1"
+        export CFLAGS="-mcpu=generic"
         ;;
     *)
         echo "Unknown target $TARGET"
@@ -28,9 +28,8 @@ echo "Building version $VERSION ($TARGET)"
 
 cargo build --release --target=$TARGET
 
-for BIN in $(find $CARGO_TARGET_DIR/$TARGET/release/ -maxdepth 1 -executable -type f)
-do
-    echo "inspected: $BIN"
-done
+BIN=$(find "$CARGO_TARGET_DIR/$TARGET/release/" -maxdepth 1 -executable -type f)
+DEST_DIR=/usr/local/bin
 
-cp $CARGO_TARGET_DIR/$TARGET/release/server /usr/local/bin
+echo "Copying $BIN to $DEST_DIR..."
+cp "$CARGO_TARGET_DIR"/$TARGET/release/server $DEST_DIR

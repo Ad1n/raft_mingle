@@ -29,10 +29,11 @@ pub enum Scheme {
 
 impl Config {
     pub fn from_env() -> Result<Self, ConfigError> {
+        let hostname = std::env::var("HOSTNAME").unwrap();
         let rpc_uris: Vec<_> = Self::try_from_env_with_delimiter("RPC_CLIENTS_PORTS")
             .into_iter()
             .map(|p| {
-                let uri_str = format!("http://localhost:{}", p);
+                let uri_str = format!("http://{}:{}", &hostname, p);
                 Url::parse(&uri_str)
             })
             .map(|r| r.unwrap())
@@ -53,7 +54,7 @@ impl Config {
         Ok(Self {
             port: Self::try_from_env("PORT")?,
             scheme: Scheme::Http,
-            host: "localhost".to_string(),
+            host: hostname,
             id: Self::try_from_env("ID")?,
             rpc_clients,
         })
